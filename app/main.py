@@ -11,8 +11,10 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from .errors import NmoError
+from .model_routes import model_router
 from .profiles import ProfileStore
 from .router import router
+from .velocity_models import VelocityModelStore
 
 
 def create_app() -> FastAPI:
@@ -22,6 +24,7 @@ def create_app() -> FastAPI:
         redoc_url=None,
     )
     app.state.profile_store = ProfileStore()
+    app.state.velocity_model_store = VelocityModelStore()
 
     @app.exception_handler(NmoError)
     async def handle_nmo_error(_: Request, exc: NmoError) -> JSONResponse:
@@ -45,6 +48,7 @@ def create_app() -> FastAPI:
         )
 
     app.include_router(router)
+    app.include_router(model_router)
     return app
 
 
