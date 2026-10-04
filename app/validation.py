@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 from .errors import NmoError
+from .layers import MAX_LAYERS
 
 
 def _is_finite_number(value: object) -> bool:
@@ -106,3 +107,50 @@ def validate_no_profile_inline_mix(profile: object, t0: object, velocity: object
     """给了动校档名就不允许再内联 t0/velocity，避免两套参数混用。"""
     if profile is not None and (t0 is not None or velocity is not None):
         raise NmoError("指定动校档 profile 时不能同时内联提供 t0 或 velocity")
+
+
+def validate_layers(layers: object) -> list[tuple[float, float]]:
+    """层状模型的层序列：
+
+    - 必须是 1～30 个层的列表；
+    - 每层至少给 thickness 与 velocity 两个字段；
+    - 层厚与层速度都必须是有限正数（拒绝 bool / NaN / Inf / 非正数）。
+    """
+    if not isinstance(layers, Sequence) or isinstance(layers, (str, bytes)):
+        raise NmoError("层序列 layers 必须是列表")
+    if len(layers) == 0:
+        raise NmoError("层序列 layers 不能为空（至少一层）")
+    if len(layers) > MAX_LAYERS:
+        raise NmoError(f"层数最多 {MAX_LAYERS} 层，当前 {len(layers)} 层（层数越界）")
+    result: list[tuple[float, float]] = []
+    for index, item in enumerate(layers):
+        position = f"layers[{index}]"
+        if isinstance(item, Mapping):
+            missing = [key for key in ("thickness", "velocity") if key not in item]
+            if missing:
+                raise NmoError(f"{position} 缺少字段: {', '.join(missing)}")
+            raw_thickness, raw_velocity = item["thickness"], item["velocity"]
+        elif isinstance(item, Sequence) and not isinstance(item, (str, bytes)) and len(item) == 2:
+            raw_thickness, raw_velocity = item
+        else:
+            raise NmoError(f"{position} 必须是包含 thickness 与 velocity 的对象")
+        thickness = require_finite(f"层厚 {position}.thickness", raw_thickness)
+        velocity = require_finite(f"层速度 {position}.velocity", raw_velocity)
+        if thickness <= 0.0:
+            raise NmoError(f"层厚 {position}.thickness 必须为有限正数")
+        if velocity <= 0.0:
+            raise NmoError(f"层速度 {position}.velocity 必须为有限正数")
+        result.append((thickness, velocity))
+    return result
+
+
+def validate_interface(interface: object, layer_count: int) -> int:
+    """目标界面编号：正整数，且不超过层数。"""
+    if not isinstance(interface, int) or isinstance(interface, bool):
+        raise NmoError("目标界面 interface 必须是从 1 起算的整数")
+    if not 1 <= interface <= layer_count:
+        raise NmoError(
+            f"目标界面 interface={interface} 越界：模型共 {layer_count} 层，"
+            f"界面编号须在 1～{layer_count} 之间"
+        )
+    return interface

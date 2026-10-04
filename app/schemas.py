@@ -96,3 +96,81 @@ class ProfileListResponse(BaseModel):
 class ErrorResponse(BaseModel):
     error: bool = True
     reason: str
+
+
+# ---------------------------------------------------------------------------
+# 层状速度模型与精确射线
+# ---------------------------------------------------------------------------
+
+
+class LayerBody(BaseModel):
+    thickness: float = Field(description="层厚（如米），必须为有限正数")
+    velocity: float = Field(description="层速度（如 m/s），必须为有限正数")
+
+
+class ModelBody(BaseModel):
+    layers: list[LayerBody] = Field(
+        description="自上而下的层序列，1～30 层，每层给 thickness 与 velocity"
+    )
+
+
+class InterfaceResponse(BaseModel):
+    index: int
+    depth: float
+    t0: float
+    vrms: float
+
+
+class LayerResponse(BaseModel):
+    thickness: float
+    velocity: float
+
+
+class ModelResponse(BaseModel):
+    name: str
+    layers: list[LayerResponse]
+    interfaces: list[InterfaceResponse]
+
+
+class ModelListResponse(BaseModel):
+    models: list[ModelResponse]
+
+
+class RayPointRequest(BaseModel):
+    model: str = Field(description="层状模型名")
+    interface: int = Field(description="目标界面编号，从 1 起算，不得超过层数")
+    offset: float = Field(description="炮检距，正负均可，按绝对值处理")
+
+
+class RayPointResponse(BaseModel):
+    model: str
+    interface: int
+    offset: float
+    ray_parameter: float
+    exact_time: float
+    t0: float
+    vrms: float
+    hyperbolic_time: float
+    difference: float
+    recomputed_offset: float
+
+
+class RayCurveRequest(BaseModel):
+    model: str
+    interface: int
+    offsets: list[float] = Field(description="炮检距网格，必须非空且严格递增")
+
+
+class RayCurveResponse(BaseModel):
+    model: str
+    interface: int
+    t0: float
+    vrms: float
+    points: list[RayPointResponse]
+
+
+class ProfileFromModelRequest(BaseModel):
+    profile: str | None = Field(
+        default=None,
+        description="生成的动校档名；缺省时用模型名。与已有动校档同命名空间，可覆盖同名动校档",
+    )

@@ -1,6 +1,6 @@
 """FastAPI 应用入口。
 
-只做装配：动校档存储、错误响应映射、三个接口的路由挂载。
+只做装配：动校档/层状模型两套存储、错误响应映射、双曲与层状射线两组路由挂载。
 不带任何网页（Swagger/Redoc 页面关闭），能力只走 HTTP JSON。
 """
 
@@ -11,6 +11,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from .errors import NmoError
+from .model_store import ModelStore
+from .models_router import router as models_router
 from .profiles import ProfileStore
 from .router import router
 
@@ -22,6 +24,7 @@ def create_app() -> FastAPI:
         redoc_url=None,
     )
     app.state.profile_store = ProfileStore()
+    app.state.model_store = ModelStore()
 
     @app.exception_handler(NmoError)
     async def handle_nmo_error(_: Request, exc: NmoError) -> JSONResponse:
@@ -45,6 +48,7 @@ def create_app() -> FastAPI:
         )
 
     app.include_router(router)
+    app.include_router(models_router)
     return app
 
 
